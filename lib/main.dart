@@ -1,5 +1,5 @@
 import 'dart:async';
-
+import 'dart:math';
 import 'package:flutter/material.dart';
 
 void main() => runApp(MyApp());
@@ -10,10 +10,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Demo',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: MyHomePage(title: 'Flutter Demo Home Page'),
+      home: MyHomePage(title: 'Guess the color'),
     );
   }
 }
@@ -26,100 +23,230 @@ class MyHomePage extends StatefulWidget {
   _MyHomePageState createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage>
-    with SingleTickerProviderStateMixin {
-  final int maxCount = 10;
-  int _counter = 10;
-  //Timer _timer;
+class _MyHomePageState extends State<MyHomePage> {
+  static const TextStyle _mainTextStyle = TextStyle(color: Colors.white);
 
-  AnimationController _controller;
-  Animation<double> _animation;
+  // final List<Color> _colors = [
+  //   Colors.green,
+  //   Colors.red,
+  //   Colors.yellow,
+  //   Colors.blue,
+  //   Colors.brown,
+  //   Colors.cyan
+  // ];
+  final Map<Color, String> _colorToName = {
+    Colors.green: "green",
+    Colors.red: "red",
+    Colors.yellow: "yellow",
+    Colors.blue: "blue",
+    Colors.brown: "brown",
+    Colors.cyan: "cyan"
+  };
+
+  final List<String> _colorNames = [
+    "green",
+    "red",
+    "yellow",
+    "blue",
+    "brown",
+    "cyan"
+  ];
+
+  final Map<String, Color> _nameToColor = {
+    "green": Colors.green,
+    "red": Colors.red,
+    "yellow": Colors.yellow,
+    "blue": Colors.blue,
+    "brown": Colors.brown,
+    "cyan": Colors.cyan
+  };
+
+  final Random _random = Random();
+  final int timeInterval = 4;
+
+  Timer _timer;
+  int _timerTick;
+  int _score = 0;
+  String _currentColorText;
+  Color _currentColor;
+  Color _colorToDisplay;
+  bool _answered = false;
+  List<Color> _options = [];
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: const Duration(seconds: 3),
-      vsync: this,
-      animationBehavior: AnimationBehavior.preserve,
-    );
 
-    _animation = CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.0, 1.0, curve: Curves.linear).flipped,
-      reverseCurve: Curves.fastOutSlowIn,
-    )..addStatusListener((AnimationStatus status) {
-        print(status);
-        if (status == AnimationStatus.dismissed) _controller.value = 1;
-        //   _controller.forward();
-        // else if (status == AnimationStatus.completed) _controller.reverse();
+    const duration = Duration(seconds: 1);
+    _timer = Timer.periodic(duration, _onTimer);
+    _timerTick = 0;
+
+    _updateGame();
+  }
+
+  void _onTimer(Timer timer) {
+    _timerTick++;
+
+    if (_timerTick >= timeInterval) {
+      _checkScore();
+      _updateGame();
+      _timerTick = 0;
+    }
+  }
+
+  void _updateGame() {
+    var index = _random.nextInt(_colorNames.length);
+    _currentColorText = _colorNames[index];
+
+    var filtered = _colorNames.where((c) => c != _currentColorText).take(2);
+    _currentColor = _nameToColor[_currentColorText];
+
+    _options.clear();
+    _options.add(_currentColor);
+
+    for (var n in filtered) {
+      _options.add(_nameToColor[n]);
+    }
+    _colorToDisplay = _options[_random.nextInt(2) + 1];
+
+    _options.shuffle();
+  }
+
+  void _checkScore() {
+    if (!_answered)
+      setState(() {
+        _score--;
       });
+    else {
+      setState(() {
+        _score++;
+      });
+      _answered = false;
+    }
   }
 
-  void startTimer() {
-    // const oneSec = const Duration(seconds: 1);
-    // if (_timer.isActive) return;
-    // _timer = new Timer.periodic(
-    //     oneSec,
-    //     (Timer timer) => setState(() {
-    //           if (_counter < 1) {
-    //             timer.cancel();
-    //             _counter = maxCount;
-    //           } else {
-    //             _counter--;
-    //           }
-    //         }));
-    print("CLICK");
-    _controller.reverse(from: 1);
-  }
-
-  @override
-  void dispose() {
-    _controller.stop();
-    //  _timer.cancel();
-    super.dispose();
+  void _onTileTap(Color color) {
+    _answered = color == _currentColor;
+    _timerTick = 0; // reset timer
+    _checkScore();
+    _updateGame();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF1b1e44),
       appBar: AppBar(
+        backgroundColor: const Color(0xFF1b1e44),
+        elevation: 0.0,
         title: Text(widget.title),
       ),
+      drawer: Drawer(),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.display1,
-            ),
-            AnimatedBuilder(
-              animation: _animation,
-              builder: (context, child) {
-                return Column(
-                  children: <Widget>[
-                    LinearProgressIndicator(
-                      value: _animation.value,
+        child: Padding(
+          padding: const EdgeInsets.all(25),
+          child: Column(
+            mainAxisSize: MainAxisSize.max,
+            mainAxisAlignment: MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                "Which color is written?",
+                style: _mainTextStyle,
+                textAlign: TextAlign.start,
+              ),
+              Container(
+                margin: const EdgeInsets.only(top: 20),
+                child: Text(
+                  _currentColorText,
+                  style: TextStyle(fontSize: 80, color: _colorToDisplay),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const Text(
+                "Answer. Quickly!",
+                style: _mainTextStyle,
+              ),
+              Container(
+                margin: const EdgeInsets.only(top: 30),
+                child: LinearProgressIndicator(
+                  backgroundColor: Color(0xFF955A82),
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFED91AD)),
+                  value: 0.6,
+                ),
+              ),
+              Container(
+                margin: const EdgeInsets.only(top: 20),
+                child: Column(
+                  children: [
+                    Text(
+                      "Your score",
+                      style: _mainTextStyle,
                     ),
-                    Padding(
-                      child: _controller.status != AnimationStatus.completed
-                          ? null
-                          : FloatingActionButton(
-                              onPressed: startTimer,
-                              tooltip: 'Increment',
-                              child: Icon(Icons.add),
-                            ),
-                      padding: const EdgeInsets.all(5),
+                    Text(
+                      "$_score",
+                      style: TextStyle(
+                          fontSize: 40,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white),
                     ),
                   ],
-                );
-              },
-            ),
-          ],
+                ),
+              ),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 25, horizontal: 0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: _getTiles(),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
       floatingActionButton: null,
+    );
+  }
+
+  List<Widget> _getTiles() {
+    List<Widget> _tiles = [];
+    for (var c in _options) {
+      _tiles.add(GestureDetector(
+        child: ColorTile(color: c),
+        onTap: () => _onTileTap(c),
+      ));
+    }
+    return _tiles;
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+}
+
+class ColorTile extends StatelessWidget {
+  final Color color;
+  const ColorTile({
+    Key key,
+    this.color,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 100,
+      height: 100,
+      child: Container(
+        color: color,
+      ),
     );
   }
 }
